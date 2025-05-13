@@ -162,8 +162,8 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=1):
 if __name__ == "__main__":
     # Example usage
     input_filepath = 'images/roses.jpg'
-    mask_prompt = 'white roses'
-    inpaint_prompt = 'red roses'
+    mask_prompt = 'red roses'
+    inpaint_prompt = 'white roses'
     # model = clipseg_model_2(device='cuda')
     output_image = mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=2)
     output_image.save('output_image.png')
