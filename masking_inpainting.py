@@ -11,23 +11,7 @@ from PIL import Image
 from matplotlib import pyplot as plt
 
 
-def clipseg_model_1(device):
-    """Loads clipseg model #1 in inference mode.
-
-    Args:
-        device (str): 'cpu' or 'cuda'
-  
-    Returns:
-        clipseg.models.clipseg.CLIPDensePredT
-    """
-    model = CLIPDensePredT(version='ViT-B/16', reduce_dim=64)
-    model.eval()
-    model.load_state_dict(torch.load('clipseg/weights/rd64-uni.pth', map_location=torch.device(device)), strict=False);
-
-    return model
-
-
-def clipseg_model_2(device):
+def clipseg_model(device, advanced=True):
     """Loads clipseg model #2 (refined) in inference mode.
 
     Args:
@@ -36,9 +20,12 @@ def clipseg_model_2(device):
     Returns:
         clipseg.models.clipseg.CLIPDensePredT
     """
-    model = CLIPDensePredT(version='ViT-B/16', reduce_dim=64, complex_trans_conv=True)
+    model = CLIPDensePredT(version='ViT-B/16', reduce_dim=64, complex_trans_conv=advanced)
     model.eval()
-    model.load_state_dict(torch.load('clipseg/weights/rd64-uni-refined.pth', map_location=torch.device(device)), strict=False)
+    if advanced:
+        model.load_state_dict(torch.load('clipseg/weights/rd64-uni-refined.pth', map_location=torch.device(device)), strict=False)
+    else:
+        model.load_state_dict(torch.load('clipseg/weights/rd64-uni.pth', map_location=torch.device(device)), strict=False)
 
     return model
 
@@ -64,7 +51,7 @@ def plot_masks(input_image, prompts, mask_images):
     plt.show()
 
 
-def create_mask(input_path, transform, prompts, model, verbose=2):
+def create_mask(input_path, transform, prompts, model, verbose=False):
     """Create a mask image for every prompt, based on an input image.
 
     Args:
@@ -72,7 +59,6 @@ def create_mask(input_path, transform, prompts, model, verbose=2):
         transform (torchvision.transforms.transforms.Compose): image transformation to be applied
         prompts (list): list of strings containing the prompts
         model (clipseg.models.clipseg.CLIPDensePredT): clipseg model
-        verbose (int, optional): a value of 2 means mask plots will be printed
     
     Returns:
         PIL.Image.Image: input image after resizing to (512, 512)
@@ -89,30 +75,29 @@ def create_mask(input_path, transform, prompts, model, verbose=2):
     with torch.inference_mode():
         preds = model(input_image_trans.repeat(n, 1, 1, 1), prompts)[0]
 
-    # Plot results
-    if verbose == 2:
+    # Binary (0 or 1) results
+    cutoff = preds.min() + 0.50 * (preds.max() - preds.min())
+    mask_image = torch.where(preds > cutoff, 1.0, 0.0)
 
+    # Plot results
+    if verbose:
         # Raw results
         print('Image Segmentation:')
         plot_masks(input_image, prompts, preds)
-
-        # Binary (0 or 1) results
-        cutoff = preds.min() + 0.50 * (preds.max() - preds.min())
-        mask_image = torch.where(preds > cutoff, 1.0, 0.0)
+        
         print('Mask Generation:')
         plot_masks(input_image, prompts, mask_image)
 
     return input_image, mask_image
 
 
-def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=1):
+def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=False):
     """Performs prompt-based image segmentation on a user-input image, followed by prompt-based inpainting.
 
     Args:
         input_filepath (str): filepath for the image to be edited
         mask_prompt (str): text description of the object to be removed or replaced
         inpaint_prompt (str): text description of the object to be added; an empty string '' means no guidance will be provided for inpainting
-        verbose (int, optional): 0 (no plots), 1 (prints input and output images), or 2 (additionally, prints mask plots)
 
     Returns:
         PIL.Image.Image: output image
@@ -124,7 +109,7 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=1):
         print('Warning: CPU is being used. Switch to GPU.')
 
     # Load a clipseg model
-    model = clipseg_model_2(device)
+    model = clipseg_model(device, advanced=True)
 
     # Define a transform for the input image
     transform = transforms.Compose([
@@ -146,7 +131,7 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=1):
     output_image = pipe(prompt=inpaint_prompt, image=input_image, mask_image=mask_image).images[0]
 
     # Print input and output plots
-    if verbose >= 1:
+    if verbose:
         print('Result:')
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
         ax1.imshow(input_image)
@@ -161,10 +146,9 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=1):
 
 if __name__ == "__main__":
     # Example usage
-    input_filepath = 'images/roses.jpg'
-    mask_prompt = 'red roses'
-    inpaint_prompt = 'white roses'
-    # model = clipseg_model_2(device='cuda')
-    output_image = mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=2)
-    output_image.save('output_image.png')
+    input_filepath = 'images/beret.jpg'
+    mask_prompt = 'red hat'
+    inpaint_prompt = 'Knitted, ribbed, textured, warm, cozy, vibrant, bold, stylish, classic, fashionable blue beret.'
+    output_image = mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=True)
+    output_image.save('output_image_refined.png')
 
