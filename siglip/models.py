@@ -2,15 +2,16 @@ import torch
 import torch.nn as nn
 
 class SigLIPSegmentationModel(nn.Module):
-    def __init__(self, embed_dim=768, initial_shape=(16, 16)):
+    def __init__(self, embed_dim=768, initial_shape=(16, 16),  n_heads=8):
         super(SigLIPSegmentationModel, self).__init__()
         self.embed_dim = embed_dim
         self.initial_shape = initial_shape  # (H0, W0) of the feature map after projection
         H0, W0 = initial_shape
-        fused_dim = embed_dim * 2  # 1536 for SigLIP2 (image_emb + text_emb)
+
+        self.fuse_attn = nn.MultiheadAttention(embed_dim, num_heads=n_heads)
         
         # Project combined embedding into an initial feature map
-        self.fc = nn.Linear(fused_dim, 256 * H0 * W0)  # project to 256 channels feature map
+        self.fc = nn.Linear(embed_dim, 256 * H0 * W0)  # project to 256 channels feature map
         self.initial_bn = nn.BatchNorm2d(256)
         
         # Decoder: upsampling layers (ConvTranspose2d blocks)
@@ -30,14 +31,35 @@ class SigLIPSegmentationModel(nn.Module):
         
         # Activation
         self.relu = nn.ReLU(inplace=True)
+
+        # Initialize weights
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.MultiheadAttention):
+                # Initialize attention weights
+                for p in m.parameters():
+                    if p.dim() > 1:
+                        nn.init.xavier_uniform_(p)
+                    else:
+                        nn.init.constant_(p, 0)
         
     def forward(self, image_emb, text_emb):
         # Expect image_emb and text_emb of shape (batch, embed_dim)
         # Fuse embeddings
-        fused = torch.cat([image_emb, text_emb], dim=1)  # shape: (batch, 2*embed_dim)
+        seq = torch.stack([image_emb, text_emb], dim=0)   # (2, batch, embed_dim)
+        attn_out, _ = self.fuse_attn(seq, seq, seq)       # (2, batch, embed_dim)
+        fused = attn_out.mean(dim=0)                      # (batch, embed_dim)
         
         # Initial projection to feature map
-        x = self.fc(fused)                    # (batch, 256*H0*W0)
+        x = self.fc(fused)                               # (batch, 256*H0*W0)
         x = x.view(x.size(0), 256, *self.initial_shape)  # reshape to (batch, 256, H0, W0)
         x = self.initial_bn(x)
         x = self.relu(x)

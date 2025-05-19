@@ -76,3 +76,6 @@ python masking_inpainting.py
 
 ## Running
 You can modify the `inference_inpainting.py` file to set your own image path, mask path, and text prompt. See `main` function for details. Happy trying!
+
+## More
+Checkout the instruct-pix2pix folder for newly trained models for inpainting!
