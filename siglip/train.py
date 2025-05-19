@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-from models import SigLIPSegmentationModel
+from models import SigLIPSegmentationModel, SiglipDensePredT
 from dataset import MagicBrushDataset
 from torchvision import transforms
 from tqdm import tqdm
@@ -18,7 +18,7 @@ config = {
     "epochs": 10,
     "batch_size": 8,
     "eta_min": 1e-5,
-    "use_tqdm": False,
+    "use_tqdm": True,
 }
 wandb.config = config
 
@@ -55,7 +55,7 @@ def combined_loss(pred, target, alpha=0.5):
     return alpha * bce + (1 - alpha) * dice
 
 # ==== Initialize our segmentation model and optimizer ====
-seg_model = SigLIPSegmentationModel().to(device)
+seg_model = SiglipDensePredT().to(device)
 # Load model weights if available
 # seg_model.load_state_dict(torch.load("best_segmentation_model.pth"))
 # criterion = nn.BCEWithLogitsLoss()  # binary cross-entropy loss on logits
@@ -65,7 +65,7 @@ scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["epochs
 
 # ==== Load dataset ====
 resize_transform = transforms.Compose([
-    transforms.Resize((256, 256)),
+    transforms.Resize((224, 224)),
     transforms.ToTensor(),
 ])
 
@@ -86,17 +86,21 @@ for epoch in range(num_epochs):
         proc_bar = tqdm(total=len(train_loader), desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch")
     for i, (source_imgs, masks, instructions) in enumerate(train_loader):
         # Move data to device
+        source_imgs = source_imgs.to(device)  # shape (batch, 3, H, W)
         masks = masks.to(device)  # shape (batch, 1, H, W)
         # Prepare inputs for SigLIP2
         # Note: SiglipProcessor can handle a batch of images and texts
-        inputs = siglip_processor(images=list(source_imgs), text=list(instructions), return_tensors="pt", padding=True).to(device)
-        inputs = {k: v.to(device) for k,v in inputs.items()}
-        with torch.no_grad():
-            siglip_out = siglip_model(**inputs)
-            img_emb_batch = siglip_out.image_embeds       # shape (batch, 768)
-            txt_emb_batch = siglip_out.text_embeds        # shape (batch, 768)
+        # inputs = siglip_processor(images=list(source_imgs), text=list(instructions), return_tensors="pt", padding=True).to(device)
+        # inputs = {k: v.to(device) for k,v in inputs.items()}
+        # with torch.no_grad():
+        #     siglip_out = siglip_model(**inputs)
+        #     img_emb_batch = siglip_out.image_embeds       # shape (batch, 768)
+        #     txt_emb_batch = siglip_out.text_embeds        # shape (batch, 768)
         # Forward pass through segmentation model
-        logits = seg_model(img_emb_batch, txt_emb_batch)  # (batch, 1, H, W) logits
+        # print("sources_img:", source_imgs.shape)
+        # print("Instructions:", list(instructions))
+
+        logits = seg_model(source_imgs, list(instructions))  # (batch, 1, H, W) logits
         # pred_mask_probs = torch.sigmoid(logits)
         # loss = criterion(pred_mask_probs, masks)
         loss = criterion(logits, masks)

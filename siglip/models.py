@@ -198,6 +198,13 @@ class SiglipDenseBase(nn.Module):
             with torch.no_grad():
                 cond = self.siglip.text_model(**inputs).pooler_output
             return cond.repeat(batch_size, 1)
+        elif isinstance(conditional, list):
+            assert len(conditional) == batch_size
+            proc = SiglipProcessor.from_pretrained(self.siglip.name_or_path)
+            inputs = proc.tokenizer(conditional, return_tensors='pt', padding=True).to(next(self.parameters()).device)
+            with torch.no_grad():
+                cond = self.siglip.text_model(**inputs).pooler_output
+            return cond
         elif torch.is_tensor(conditional) and conditional.ndim == 2:
             return conditional
         else:
@@ -345,6 +352,6 @@ class SiglipDensePredT(SiglipDenseBase):
 
 if __name__ == "__main__":
     model = SiglipDensePredT()
-    image = torch.randn(1, 3, 224, 224)
-    pred = model(image, conditional="A cat")
-    print(pred.shape)  # should be [1, 1, 224, 224]
+    image = torch.randn(5, 3, 224, 224)
+    pred = model(image, conditional=["A cat", "A dog", "A dog", "A dog", "A dog"])
+    print(pred.shape)  # should be [5, 1, 224, 224]
