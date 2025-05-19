@@ -164,6 +164,7 @@ def get_mask(images, instructions):
 # exit(0)
 
 # ==== Training loop ====
+best_iou = 0.0
 for epoch in range(config["epochs"]):
     seg_model.train()
     pbar = tqdm(train_loader, disable=not config["use_tqdm"])
@@ -185,7 +186,7 @@ for epoch in range(config["epochs"]):
 
     # Save model checkpoint
     torch.save(seg_model.state_dict(), f"align/segmentation_model_epoch{epoch + 1}.pth")
-    
+
     # Evaluate on test set
     seg_model.eval()
     total_iou = 0.0
