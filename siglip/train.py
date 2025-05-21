@@ -11,14 +11,14 @@ import wandb
 from PIL import Image
 
 # ==== Setup wandb ====
-wandb.init(project="siglip2-segmentation", name="dice loss")
+wandb.init(project="siglip2-segmentation", name="Vit")
 config = {
-    "learning_rate": 1e-3,
+    "learning_rate": 5e-3,
     "weight_decay": 1e-4,
     "epochs": 10,
     "batch_size": 8,
     "eta_min": 1e-5,
-    "use_tqdm": True,
+    "use_tqdm": False,
 }
 wandb.config = config
 
@@ -110,7 +110,7 @@ for epoch in range(num_epochs):
         optimizer.step()
         total_loss += loss.item() * source_imgs.size(0)
 
-        wandb.log({f"epoch{epoch + 1}/train/loss": loss.item(), "step": i})
+        wandb.log({"train/loss": loss.item(), "step": i, "epoch": epoch})
         if config["use_tqdm"]:
             proc_bar.update(1)
             proc_bar.set_postfix(loss=loss.item())
@@ -128,13 +128,14 @@ for epoch in range(num_epochs):
     count = 0
     with torch.no_grad():
         for i, (source_imgs, masks, instructions) in enumerate(test_loader):
+            source_imgs = source_imgs.to(device)  # shape (batch, 3, H, W)
             masks = masks.to(device)
-            inputs = siglip_processor(images=list(source_imgs), text=list(instructions), return_tensors="pt", padding=True)
-            inputs = {k: v.to(device) for k,v in inputs.items()}
-            siglip_out = siglip_model(**inputs)
-            img_emb_batch = siglip_out.image_embeds
-            txt_emb_batch = siglip_out.text_embeds
-            logits = seg_model(img_emb_batch, txt_emb_batch)
+            # inputs = siglip_processor(images=list(source_imgs), text=list(instructions), return_tensors="pt", padding=True)
+            # inputs = {k: v.to(device) for k,v in inputs.items()}
+            # siglip_out = siglip_model(**inputs)
+            # img_emb_batch = siglip_out.image_embeds
+            # txt_emb_batch = siglip_out.text_embeds
+            logits = seg_model(source_imgs, list(instructions))  # (batch, 1, H, W) logits
             # Apply sigmoid to get probabilities in [0,1]
             pred_mask_probs = torch.sigmoid(logits)  # (batch, 1, H, W)
             # print(f"pred_mask_probs: {pred_mask_probs}")
@@ -157,8 +158,8 @@ for epoch in range(num_epochs):
                 _pred_mask = Image.fromarray(_pred_mask[0], mode='L')
                 _masks = Image.fromarray(_masks[0], mode='L')
 
-                _pred_mask.save(f"train/pred_mask_epoch{epoch+1}.png")
-                _masks.save(f"train/gt_mask_epoch{epoch+1}.png")
+                _pred_mask.save(f"vit/pred_mask_epoch{epoch+1}.png")
+                _masks.save(f"vit/gt_mask_epoch{epoch+1}.png")
 
             # Compute IoU for each sample in the batch
             intersection = (pred_mask * masks).sum(dim=[1,2,3])  # sum over H,W for each batch item
@@ -173,11 +174,11 @@ for epoch in range(num_epochs):
     if config["use_tqdm"]:
         proc_bar.close()
     avg_iou = total_iou / count
-    wandb.log({f"epoch{epoch + 1}/train/avg_loss": avg_loss, f"epoch{epoch + 1}/val/avg_iou": avg_iou, "lr": scheduler.get_last_lr()[0]})
+    wandb.log({"train/avg_loss": avg_loss, "val/avg_iou": avg_iou, "lr": scheduler.get_last_lr()[0], "epoch": epoch})
     scheduler.step()
     print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {avg_loss:.4f}, Val IoU: {avg_iou:.4f}", flush=True)
 
     if avg_iou >= best_iou:
         best_iou = avg_iou
-        torch.save(seg_model.state_dict(), f"train/best_segmentation_model.pth")
+        torch.save(seg_model.state_dict(), f"vit/best_segmentation_model.pth")
         print(f"Saved new best model with IoU: {best_iou:.4f}")

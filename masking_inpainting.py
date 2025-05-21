@@ -48,7 +48,7 @@ def plot_masks(input_image, prompts, mask_images):
     ax[0].text(0, -15, 'input')
     [ax[i+1].imshow(torch.sigmoid(mask_images[i][0]), cmap='gray') for i in range(n)]
     [ax[i+1].text(0, -15, '"' + prompts[i] + '"') for i in range(n)]
-    plt.savefig('mask_images.png', dpi=300, bbox_inches='tight')
+    plt.savefig('tmp/mask_images.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 
@@ -92,7 +92,7 @@ def create_mask(input_path, transform, prompts, model, verbose=False):
     return input_image, mask_image
 
 
-def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=False):
+def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=False, mask=None):
     """Performs prompt-based image segmentation on a user-input image, followed by prompt-based inpainting.
 
     Args:
@@ -119,8 +119,15 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=False)
     ])
 
     # Create mask image(s), and convert to PIL Image
-    input_image, mask_image = create_mask(input_filepath, transform, [mask_prompt], model, verbose=verbose)
-    mask_image = transforms.ToPILImage()(mask_image.squeeze(0))
+    if mask is None:
+        input_image, mask_image = create_mask(input_filepath, transform, [mask_prompt], model, verbose=verbose)
+        mask_image = mask_image.squeeze(0)
+        mask_image = transforms.ToPILImage()(mask_image)
+    else:
+        input_image = Image.open(input_filepath)
+        input_image = input_image.resize((512, 512))
+        mask *= 255
+        mask_image = transforms.ToPILImage()(mask).resize((512, 512))
 
     # Perform inpainting
     pipe = StableDiffusionInpaintPipeline.from_pretrained(
