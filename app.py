@@ -5,7 +5,7 @@ from PIL import Image
 import contextlib
 import numpy as np
 import uuid
-
+import cv2
 from inference_painting import do_inf_inpaint
 
 def save_temp_image(image_array, prefix="img", ext="png"):
@@ -16,6 +16,31 @@ def save_temp_image(image_array, prefix="img", ext="png"):
     Image.fromarray(image_array).save(path)
     return path
 
+#--------------------------------------------------------------------------------------
+from transformers import pipeline
+
+# 初始化一次全局 LLM pipeline（建议放在模块级别缓存）
+llm_extract = pipeline("text2text-generation", model="google/flan-t5-small")
+
+def extract_keywords_from_sentence_llm(sentence):
+    """
+    使用一个轻量 LLM 提取关键词：返回 (kw1, kw2)
+    """
+    prompt = (
+        f"Extract two keywords from the following sentence. "
+        f"The first is the object to remove or replace, the second is the new object. "
+        f"Only return the two keywords separated by a comma:\n\n{sentence}"
+    )
+
+    output = llm_extract(prompt, max_new_tokens=20, return_full_text=False)[0]["generated_text"]
+    
+    # 简单清理
+    if "," in output:
+        parts = output.strip().split(",", 1)
+        return parts[0].strip(), parts[1].strip()
+    else:
+        print("⚠️ LLM output format unexpected:", output)
+        return sentence, ""
 def create_img(params, mask):
     # TODO: Currently only supports keyword mode, use a small LLM model to seperate the keywords in whole sentence mode
     # print("Prompt:", params["prompt"])
@@ -24,13 +49,30 @@ def create_img(params, mask):
     if mask is not None:
         print("Mask shape:", mask.shape)
 
+#----------------------------------#
+    # 使用小型 LLM 抽取关键词（只在 Whole sentence 模式下）
+    if "prompt" in params:
+        sentence = params["prompt"]
+        kw1, kw2 = extract_keywords_from_sentence_llm(sentence)
+    else:
+        kw1, kw2 = params["kw1"], params["kw2"]
+        
     output_image = do_inf_inpaint(
         params["input_path"],
-        params["kw1"],
-        params["kw2"],
+        kw1,
+        kw2,
         params["guidance_scale"],
         mask=mask
     )
+#----------------------------------#
+
+#    output_image = do_inf_inpaint(
+#        params["input_path"],
+#        params["kw1"],
+#        params["kw2"],
+#        params["guidance_scale"],
+#        mask=mask
+#    )
 
     return output_image
 
@@ -81,7 +123,28 @@ def run_pipeline(input_img, mode, sentence, kw1, kw2, steps, guidance, raw_mask)
         # 1. Fill the gaps
         # 2. enlarge it a bit
         # Maybe try use a rectangle to cover the whole area anyway
+        #----------------------------------------------------
+        # step 0: Convert to binary mask
         gray = (raw_mask[0].mean(axis=2) > 0).astype(np.uint8)
+
+        # Step 1: Fill small holes — morphological closing (dilation → erosion)
+        kernel = np.ones((10, 10), np.uint8)
+        closed = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel)
+
+        # Step 2: Enlarge the mask a bit — pure dilation
+        dilated = cv2.dilate(closed, kernel, iterations=1)
+
+        # Optional: remove tiny noise (small connected components)
+        # contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # mask_clean = np.zeros_like(dilated)
+        # for cnt in contours:
+        #     if cv2.contourArea(cnt) > 100:  # filter small areas
+        #         cv2.drawContours(mask_clean, [cnt], -1, color=1, thickness=-1)
+        # mask = mask_clean
+
+        # For now, skip noise filtering
+        mask = dilated
+
         num_nonzero = np.count_nonzero(gray)
         if num_nonzero > 0:
             mask = gray
