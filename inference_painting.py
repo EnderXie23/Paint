@@ -23,9 +23,9 @@ def do_inf_inpaint(image_path, mask_prompt, inpaint_prompt, description_scale=10
         prompt = f"Please describe in detail the {mask_prompt} in the image. Use at least {description_scale} adjective words, including its type, color, texture, etc. Do not use full sentences."
         adjectives = inference(image_path, prompt)
 
-        #idea added: What if do so to the inpaint prompt too?
+        #idea: What if do so to the inpaint prompt too
         # Perform inference using the Qwen2.5-VL model
-        #prompt_inpaint_zone = f"Please describe in detail the {mask_prompt} in the image. Do not include related features that mentioned in {inpaint_prompt}. Use at least {description_scale} adjective words, including its type, color, texture, etc. Do not use full sentences."
+        #prompt_inpaint_zone = f"Please describe in detail the {mask_prompt} in the image. Do not include related features that mentioned in {mask_prompt} this word. Use at least {description_scale} adjective words, including its type, color, texture, etc. Do not use full sentences."
         #adjectives_inpaint = inference(image_path, prompt_inpaint_zone)
 
 
@@ -62,7 +62,7 @@ def do_inf_inpaint(image_path, mask_prompt, inpaint_prompt, description_scale=10
 ###---------构造masked 部分，后续可以直接从app.py中传入---------------####
 
         # === Step 5: 构造 prompt 并执行 Qwen2.5-VL 推理 ===
-        prompt = f"We just care about {mask_prompt} in this piece of img. Please describe in detail the {mask_prompt} object in the img. Use at least {description_scale} adjective words, including its relative position in the full image or its approximate location in the image(important) (e.g., top-left, center-right, bottom, etc.), type, color, texture, etc. Do not use full sentences."
+        prompt = f"Please describe in detail the main object in the img. Use at least {description_scale} adjective words, including its relative position in the full image or its approximate location in the image(important) (e.g., top-left, center-right, bottom, etc.), type, color, texture, etc. Do not use full sentences."
         adjectives = inference(masked_path, prompt)
 
         # Perform masking and inpainting
