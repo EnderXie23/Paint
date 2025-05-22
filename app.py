@@ -6,6 +6,7 @@ import contextlib
 import numpy as np
 import uuid
 import cv2
+from transformers import pipeline
 from inference_painting import do_inf_inpaint
 
 def save_temp_image(image_array, prefix="img", ext="png"):
@@ -16,31 +17,29 @@ def save_temp_image(image_array, prefix="img", ext="png"):
     Image.fromarray(image_array).save(path)
     return path
 
-#--------------------------------------------------------------------------------------
-from transformers import pipeline
-
-# 初始化一次全局 LLM pipeline（建议放在模块级别缓存）
-llm_extract = pipeline("text2text-generation", model="google/flan-t5-small")
 
 def extract_keywords_from_sentence_llm(sentence):
     """
-    使用一个轻量 LLM 提取关键词：返回 (kw1, kw2)
+    Extract two keywords from a sentence using a small LLM.
     """
     prompt = (
-        f"Extract two keywords from the following sentence. "
+        f"You are a photo inpainting assistant. Extract two keywords from the following prompt. "
         f"The first is the object to remove or replace, the second is the new object. "
         f"Only return the two keywords separated by a comma:\n\n{sentence}"
     )
+    llm_extract = pipeline("text-generation", model="/nvme0n1/Qwen2.5-3B-Instruct") # Replace with your own model
 
     output = llm_extract(prompt, max_new_tokens=20, return_full_text=False)[0]["generated_text"]
     
-    # 简单清理
+    # Check if the output contains a comma
     if "," in output:
         parts = output.strip().split(",", 1)
         return parts[0].strip(), parts[1].strip()
     else:
         print("⚠️ LLM output format unexpected:", output)
         return sentence, ""
+    
+
 def create_img(params, mask):
     # TODO: Currently only supports keyword mode, use a small LLM model to seperate the keywords in whole sentence mode
     # print("Prompt:", params["prompt"])
@@ -49,8 +48,7 @@ def create_img(params, mask):
     if mask is not None:
         print("Mask shape:", mask.shape)
 
-#----------------------------------#
-    # 使用小型 LLM 抽取关键词（只在 Whole sentence 模式下）
+    # Extract keywords from sentence
     if "prompt" in params:
         sentence = params["prompt"]
         kw1, kw2 = extract_keywords_from_sentence_llm(sentence)
@@ -64,15 +62,6 @@ def create_img(params, mask):
         params["guidance_scale"],
         mask=mask
     )
-#----------------------------------#
-
-#    output_image = do_inf_inpaint(
-#        params["input_path"],
-#        params["kw1"],
-#        params["kw2"],
-#        params["guidance_scale"],
-#        mask=mask
-#    )
 
     return output_image
 
