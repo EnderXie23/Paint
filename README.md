@@ -8,7 +8,7 @@ This repo allows you to perform **image editing via text prompts**, or support u
 - [x] User-defined masking area
 - [ ] Complete WebUI support (Check TODOs in code)
 - [ ] Train the clip model for mask prediction
-- [ ] Design a metric for mask prediction quality (I suggest miou for quality, k-means for clustering)
+- [x] Design a metric for mask prediction quality (I suggest miou for quality, k-means for clustering)
 - [ ] Do ablation study
 - [ ] Finish the report
 
@@ -66,7 +66,7 @@ cd ..
 In the current impl, I used the `stable-diffusion-2-inpainting` model, also with `ViT-B 16` and some weights for SlipSeg. For the large model, I recommend using `modelscope` for downloading:
 
 ```bash
-pip install modelscope # If you do not have modelscpope installed
+pip install modelscope # If you do not have modelscope installed
 modelscope download --model stabilityai/stable-diffusion-2-inpainting --local_dir <your local dir>
 modelscope download --model Qwen/Qwen2.5-VL-7B-Instruct --local_dir <your local dir>
 ```
@@ -102,7 +102,7 @@ python masking_inpainting.py
 ```
 
 ## Running
-You can modify the `inference_inpainting.py` file to set your own image path, mask path, and text prompt. See `main` function for details. Happy trying!
+You can modify the `inference_painting.py` file to set your own image path, mask path, and text prompt. See `main` function for details. Happy trying!
 
 ## More
 Checkout the instruct-pix2pix folder for newly trained models for inpainting!
