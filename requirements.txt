@@ -8,3 +8,4 @@ sentencepiece
 protobuf
 wandb
 gradio
+opencv-python

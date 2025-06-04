@@ -2,6 +2,33 @@
 
 This repo allows you to perform **image editing via text prompts**, or support user-defined masking area and generation prompts.
 
+## TaskList
+
+- [x] Text-guided image inpainting
+- [x] User-defined masking area
+- [ ] Complete WebUI support (Check TODOs in code)
+- [ ] Train the clip model for mask prediction
+- [ ] Design a metric for mask prediction quality (I suggest miou for quality, k-means for clustering)
+- [ ] Do ablation study
+- [ ] Finish the report
+
+You may download the **Magic Brush** dataset using the the codes in `dataset/download.py`, and extract the dataset using `dataset/extract.py`. The dataset will be formatted into:
+
+
+```
+MagicBrush/
+├── train
+│   ├── 00000
+│   │   ├── instructions.txt (with inpaint instructions)
+│   │   ├── mask_img.png (img with masked out areas)
+│   │   ├── source_img.png (original image)
+│   │   └── target_img.png (image with masked areas filled)
+│   └── ...
+├── test
+│   └── ...
+```
+
+
 ## Environment Setup
 First of all, set up a new conda environment:
 ```bash
