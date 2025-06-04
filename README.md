@@ -9,7 +9,7 @@ This repo allows you to perform **image editing via text prompts**, or support u
 - [ ] Complete WebUI support (Check TODOs in code)
 - [ ] Train the clip model for mask prediction
 - [x] Design a metric for mask prediction quality (I suggest miou for quality, k-means for clustering)
-- [ ] Do ablation study
+- [x] Do ablation study
 - [ ] Finish the report
 
 You may download the **Magic Brush** dataset using the the codes in `dataset/download.py`, and extract the dataset using `dataset/extract.py`. The dataset will be formatted into:
@@ -103,6 +103,17 @@ python masking_inpainting.py
 
 ## Running
 You can modify the `inference_painting.py` file to set your own image path, mask path, and text prompt. See `main` function for details. Happy trying!
+
+### Ablation Study
+To reproduce the ablation experiments, use `ablation_study.py`. The script
+generates results for the full pipeline and the three ablated variants
+described in the paper:
+
+```bash
+python ablation_study.py --image <img> --mask_prompt "object" --inpaint_prompt "replacement"
+```
+Results are written to `ablation_results/` by default and PSNR scores relative
+to the baseline are printed.
 
 ## More
 Checkout the instruct-pix2pix folder for newly trained models for inpainting!
