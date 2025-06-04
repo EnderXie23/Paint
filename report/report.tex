@@ -68,14 +68,32 @@
 
 
 \begin{abstract}
-  Write an abstract, stating that we have achieved a pipeline that can complete the text-to-image editing task by first generating a mask from the text prompt and then inpainting the image from the mask. We also allow for user drawn mask. Compare the pipeline with the existing Pix2Pix model.
+We present \emph{Pix2Mask2Pix}, a pipeline for text guided image editing. A
+CLIP based segmenter predicts the region to modify from a prompt while the user
+can optionally provide their own mask. The masked area is described by a
+vision--language model and then completed using a diffusion based inpainting
+model. Compared with Pix2Pix, our approach better preserves the original image
+style and supports free form edits without paired training data.
 \end{abstract}
 
 
 \section{Introduction}
 
 
-Describe the needs / usages for text guided image editing. Especially the results attained by pix2pix and GPT-4o model series. Then \textbf{briefly introduce} the pipeline we have, pointing out the advantages of our pipeline over the existing models (style-keeping, self-drawn mask, etc.). Finally, we shall describe the training work we have done.
+Recent advances in generative modeling allow images to be modified through
+natural language commands. Such functionality is attractive for creative work
+and casual photo editing. Early systems like Pix2Pix learn paired mappings but
+remain limited to their training domains and mask shapes. Modern large models,
+including GPT-4o and Stable Diffusion, can synthesise diverse imagery but lack
+precise control over the region to edit.
+
+We propose a modular pipeline that first predicts a mask using a CLIP-based
+segmenter. Users may refine this mask manually before a vision--language model
+describes the masked content. A diffusion inpainter then generates the final
+pixels guided by this description. This approach preserves the original style
+while supporting arbitrary masks beyond the reach of Pix2Pix. We further
+fine-tune the mask predictor on the Magic Brush dataset so that segmentations
+better align with textual prompts.
 
 
 \section{Related Work}
@@ -83,26 +101,46 @@ Describe the needs / usages for text guided image editing. Especially the result
 
 \subsection{Pix2Pix}
 
-
-Add related work on Pix2Pix, show pictures, cite the original paper, and describe the model architecture. Also, mention the limitations of Pix2Pix, such as the difficulty in generating complex masks.
+Pix2Pix~\cite{isola2017pix2pix} introduced conditional adversarial networks for
+image-to-image translation. The model learns a mapping from an input image to a
+target output using paired data and a discriminator to encourage realism.
+Although effective for tasks like facade generation or sketch colouring, it
+requires aligned training pairs and assumes that the structure of the output is
+similar to the input. As a result Pix2Pix struggles with arbitrary mask shapes
+and complex modifications that fall outside of its training distribution.
 
 
 \subsection{Text guided Image Embedding}
 
 
-Add related work on text guided image editing, such as CLIP, SigCLIP etc. Describe how these models can be used to generate masks from text prompts, and how they can be used to guide the image editing process.
+Large scale vision--language models bridge textual concepts and visual content.
+CLIP~\cite{radford2021clip} and later variants like SigCLIP learn joint
+embeddings for text and images, enabling retrieval and localisation of objects
+described by language. By projecting image patches and text into a shared space,
+these models can produce masks corresponding to user prompts. Such masks provide
+a strong prior for editing tasks and have been used to condition diffusion-based
+image synthesis.
 
 
 \subsection{Text guided Image Inpainting}
 
 
-Cite Stable Diffusion models.
+Inpainting aims to synthesise plausible content in masked regions while keeping
+the surroundings consistent. Diffusion-based methods such as Stable
+Diffusion~\cite{rombach2022stable} can be conditioned on a text prompt together
+with a spatial mask to edit only the selected area. This allows high quality
+text driven modifications without retraining the generator.
 
 
 \subsection{GPT-4o}
 
 
-Add a photo descibing the GPT-4o image generation tool, and add a few inpainting examples.
+The recently released GPT-4o model combines language and vision abilities in a
+single architecture. It can follow multimodal instructions to produce images or
+perform simple inpainting. However the system is closed source and offers little
+control over the mask or the preservation of fine-grained style. In contrast our
+pipeline relies on open models where each stage can be tuned to specific editing
+requirements.
 
 
 \section{Pipeline Implementation}
@@ -111,7 +149,8 @@ Add a photo descibing the GPT-4o image generation tool, and add a few inpainting
 \subsection{Overview}
 
 
-Plot a flowchart here to show the pipeline we have implemented:
+The overall workflow consists of three sequential stages as illustrated in
+Figure~\ref{fig:pipeline}:
 
 
 \begin{itemize}
@@ -125,19 +164,30 @@ Plot a flowchart here to show the pipeline we have implemented:
 \subsection{CLIP Mask Generation}
 
 
-Describe how we use CLIP to generate a mask from the text prompt. Show some examples of the masks generated by CLIP.
+We adopt SlipSeg, a CLIP-based segmentation model, to estimate the region
+referred to by a textual prompt. The image features are compared with the prompt
+embedding to produce a similarity map, which is then thresholded into a binary
+mask. Users may further edit this mask before the description stage.
 
 
 \subsection{Qwen Description}
 
 
-Descibe why we need to use Qwen to generate a description of the mask, and how we use it to guide the image inpainting process. Show some examples of the descriptions generated by Qwen and images generated.
+Once the mask is obtained we generate a concise description of the region with
+Qwen-VL, an open vision--language model. The model summarises the masked area in
+a short phrase (e.g., ``red umbrella'') which is then fed into the diffusion
+inpainter. These semantic hints help steer generation toward the intended object
+or style while keeping the rest of the scene intact.
 
 
 \subsection{Stable Diffusion Inpainting}
 
 
-Describe how we use Stable Diffusion to inpaint the image from the mask. Show some examples of the inpainted images.
+Finally we employ Stable Diffusion's inpainting model to synthesise new content
+inside the masked area. The model takes the original image, the binary mask and
+the description generated by Qwen as inputs. Conditioning on both the visual
+context and the textual hint enables coherent completion that blends smoothly
+with the unmodified regions.
 
 
 \section{Experiments and Training}
@@ -182,7 +232,13 @@ Get rid of the Qwen description step, and use the CLIP mask directly to inpaint 
 \section{Discussion}
 
 
-Some of the limitations of our pipeline, such as the quality of the masks generated by CLIP, the guide strength of the Qwen description, and the quality of the inpainted images. Also, compare with SOTA transformer structured models, note the ability to generate complex masks and drawing text.
+While the proposed approach offers more control than prior work, several
+limitations remain. The CLIP-based segmentation sometimes produces coarse masks
+that miss fine details. The textual hints generated by Qwen may also be
+ambiguous, leading to inconsistent inpainting. Finally, diffusion models still
+struggle with complicated structures and text rendering. Future extensions could
+explore stronger segmentation models and tighter integration between the
+language and diffusion components.
 
 
 \section{Conclusion}
