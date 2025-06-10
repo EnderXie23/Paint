@@ -8,9 +8,9 @@ This repo allows you to perform **image editing via text prompts**, or support u
 - [x] User-defined masking area
 - [ ] Complete WebUI support (Check TODOs in code)
 - [ ] Train the clip model for mask prediction
-- [x] Design a metric for mask prediction quality (I suggest miou for quality, k-means for clustering)
-- [x] Do ablation study
-- [ ] Finish the report
+- [ ] Design a metric for mask prediction quality (*Sciprt Finished*)
+- [ ] Do ablation study (*Sciprt Finished*)
+- [ ] Finish the report (*With basic structure given*)
 
 You may download the **Magic Brush** dataset using the the codes in `dataset/download.py`, and extract the dataset using `dataset/extract.py`. The dataset will be formatted into:
 
