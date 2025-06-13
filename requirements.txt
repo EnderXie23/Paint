@@ -1,0 +1,11 @@
+diffusers
+accelerate
+transformers
+ftfy
+modelscope
+qwen-vl-utils[decord]==0.0.8
+sentencepiece
+protobuf
+wandb
+gradio
+opencv-python
