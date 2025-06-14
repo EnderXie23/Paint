@@ -3,7 +3,6 @@
 Functions to perform text-based masking and inpainting.
 """
 
-
 import torch
 from torchvision import transforms
 from diffusers import StableDiffusionInpaintPipeline
@@ -11,6 +10,7 @@ from clipseg.models.clipseg import CLIPDensePredT
 from PIL import Image
 from matplotlib import pyplot as plt
 
+diffusion_path = '../autodl-tmp/sd2'
 
 def clipseg_model(device, advanced=True):
     """Loads clipseg model #2 (refined) in inference mode.
@@ -38,6 +38,7 @@ def plot_masks(input_image, prompts, mask_images, n):
         input_image (PIL.Image.Image): input image to be plotted
         prompts (list): list of strings containing the mask prompts
         mask_images (tensor): generated mask images from the clipseg model
+        n (int): number of prompts and mask images
 
     Returns:
         None
@@ -132,7 +133,7 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=True, 
 
     # Perform inpainting
     pipe = StableDiffusionInpaintPipeline.from_pretrained(
-        '../autodl-tmp/sd2', 
+        diffusion_path, 
         revision='fp16', 
         torch_dtype=torch.float16,
         use_safetensors=True
