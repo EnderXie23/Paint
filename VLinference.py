@@ -5,7 +5,7 @@ from qwen_vl_utils import process_vision_info
 import torch
 
 def inference(img_path, prompt):
-    model_path="../autodl-tmp/vl"
+    model_path="/nvme0n1/xmy/Qwen2.5-VL-7B-Instruct"
     use_flash_attention = True
 
     # default: Load the model on the available device(s)

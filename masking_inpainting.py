@@ -10,16 +10,10 @@ from clipseg.models.clipseg import CLIPDensePredT
 from PIL import Image
 from matplotlib import pyplot as plt
 
-diffusion_path = '../autodl-tmp/sd2'
+diffusion_path = '/nvme0n1/xmy/stable-diffusion-2-inpainting'
 
 def clipseg_model(device, advanced=True):
-    """Loads clipseg model #2 (refined) in inference mode.
-
-    Args:
-        device (str): 'cpu' or 'cuda'
-  
-    Returns:
-        clipseg.models.clipseg.CLIPDensePredT
+    """Loads clipseg model in inference mode.
     """
     model = CLIPDensePredT(version='ViT-B/16', reduce_dim=64, complex_trans_conv=advanced)
     model.eval()
@@ -130,6 +124,10 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=True, 
         input_image = input_image.resize((512, 512))
         mask *= 255
         mask_image = transforms.ToPILImage()(mask).resize((512, 512))
+
+    # Save the mask as image
+    mask_img_path = "tmp/mask.jpg"
+    mask_image.save(mask_img_path)
 
     # Perform inpainting
     pipe = StableDiffusionInpaintPipeline.from_pretrained(

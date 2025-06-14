@@ -3,6 +3,7 @@ import argparse
 from PIL import Image
 import numpy as np
 import torch
+from typing import Optional, Union
 from torchvision import transforms
 from diffusers import StableDiffusionInpaintPipeline
 
@@ -11,13 +12,48 @@ from inference_painting import do_inf_inpaint
 from VLinference import inference
 
 
-def psnr(img1: Image.Image, img2: Image.Image) -> float:
-    """Compute PSNR between two images."""
+def psnr(
+    img1: Image.Image,
+    img2: Image.Image,
+    mask: Optional[Union[Image.Image, np.ndarray]] = None
+) -> float:
+    """
+    Compute PSNR between two images, optionally excluding regions defined by mask.
+    """
+    # Convert images to float32 arrays
     arr1 = np.array(img1).astype(np.float32)
     arr2 = np.array(img2).astype(np.float32)
-    mse = np.mean((arr1 - arr2) ** 2)
+
+    # Determine valid-pixel mask
+    if mask is None:
+        # all pixels valid
+        valid = np.ones_like(arr1, dtype=bool)
+    else:
+        # build exclusion mask
+        if isinstance(mask, Image.Image):
+            mask_arr = np.array(mask.convert('L'))
+        else:
+            mask_arr = np.array(mask)
+        excluded = mask_arr.astype(bool)
+
+        # valid = inverse of excluded
+        valid = ~excluded
+        # if images have channels, broadcast the 2D mask
+        if arr1.ndim == 3 and valid.ndim == 2:
+            valid = np.repeat(valid[:, :, np.newaxis], arr1.shape[2], axis=2)
+
+    # Count valid pixels
+    n_valid = np.count_nonzero(valid)
+    if n_valid == 0:
+        return float('nan')  # nothing to compare
+
+    # Compute MSE over valid pixels only
+    diff = arr1 - arr2
+    mse = np.sum((diff ** 2)[valid]) / n_valid
     if mse == 0:
         return float('inf')
+
+    # PSNR formula (assuming pixel values in [0,255])
     return 20 * np.log10(255.0 / np.sqrt(mse))
 
 
@@ -116,4 +152,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+
+    pass

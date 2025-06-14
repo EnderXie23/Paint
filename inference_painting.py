@@ -68,8 +68,6 @@ def do_inf_inpaint(image_path, mask_prompt, inpaint_prompt, description_scale=10
         PIL.Image: The inpainted image.
     """
     if mask is None:
-        # TODO: Even if there is mask, we shall describe the thing being masked.
-        # Perform inference using the Qwen2.5-VL model
         prompt = f"Please describe in detail the {mask_prompt} in the image. Use at least {description_scale} adjective words, including its type, color, texture, etc. Do not use full sentences."
         adjectives = inference(image_path, prompt)
 
@@ -77,21 +75,24 @@ def do_inf_inpaint(image_path, mask_prompt, inpaint_prompt, description_scale=10
         inpaint_prompt = f"{adjectives} {inpaint_prompt}"
 
     if mask is not None:
+        # Save the mask as image
+        mask_path = f"tmp/drawn_mask.jpg"
+        cv2.imwrite(mask_path, mask * 255)  # Convert mask to 0-255 range
+        print(f"✅ Mask saved to: {mask_path}")
+
         masked_path = extract_mask(image_path, mask)
         prompt = f"Please describe in detail the main object in the img. Use at least {description_scale} adjective words, including its type, color, texture, etc. Do not use full sentences."
         adjectives = inference(masked_path, prompt)
 
         # Perform masking and inpainting
         inpaint_prompt = f"{adjectives} {inpaint_prompt}"
-#        os.remove(masked_path) # delete the temporary masked image
 
-        
     output_image = mask_and_inpaint(image_path, mask_prompt, inpaint_prompt, verbose=True, mask=mask)
     os.makedirs("tmp", exist_ok=True)
-    masked_path = f"tmp/paint.jpg"
-    output_image.save(masked_path)  
-    print(f"✅ Output image saved to: {masked_path}")
-    
+    output_path = f"tmp/output.jpg"
+    output_image.save(output_path)  
+    print(f"✅ Output image saved to: {output_path}")
+
     return output_image
 
 if __name__ == "__main__":

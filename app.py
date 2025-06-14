@@ -11,7 +11,7 @@ import cv2
 from inference_painting import do_inf_inpaint
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-model_path = "../autodl-tmp/qwen3_4B"
+model_path = "/nvme0n1/xmy/Qwen3-4B"
 
 
 def save_temp_image(image_array, prefix="img", ext="png"):
@@ -29,7 +29,7 @@ def extract_keywords_from_sentence_llm(sentence):
     prompt = (
         f"You are a photo inpainting assistant. Extract two keywords from the following prompt. "
         f"The first is the object to remove or replace, the second is the new object. "
-        f"Only return the two keywords separated by a comma:\n\n{sentence}"
+        f"Only return the two keywords separated by a comma.:\n\n{sentence}"
     )
 
     llm_extract = pipeline(
@@ -239,5 +239,5 @@ with gr.Blocks() as demo:
         outputs=[output_image, logs]
     )
 
-demo.launch(share=True)
+demo.launch()
 

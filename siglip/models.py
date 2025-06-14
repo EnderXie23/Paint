@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import math
+import torch.nn.functional as F
+from transformers import SiglipModel, SiglipProcessor, AutoModel
 
 class SigLIPSegmentationModel(nn.Module):
     def __init__(self, embed_dim=768, initial_shape=(16, 16),  n_heads=8):
@@ -79,11 +82,6 @@ class SigLIPSegmentationModel(nn.Module):
         # Note: We output raw logits. During training we use a sigmoid + BCELoss or BCEWithLogitsLoss.
         return mask_logits
 
-import math
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from transformers import SiglipModel, SiglipProcessor, AutoModel
 
 class SiglipDenseBase(nn.Module):
     def __init__(

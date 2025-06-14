@@ -132,3 +132,7 @@ dmypy.json
 .pyre/
 
 weights
+wandb/
+res/
+
+clipseg_best.pth
