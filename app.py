@@ -1,3 +1,4 @@
+# app.py
 import gradio as gr
 import io
 import os
@@ -6,8 +7,9 @@ import contextlib
 import numpy as np
 import uuid
 import cv2
-from transformers import pipeline
+
 from inference_painting import do_inf_inpaint
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
 def save_temp_image(image_array, prefix="img", ext="png"):
     os.makedirs("tmp", exist_ok=True)
@@ -18,6 +20,8 @@ def save_temp_image(image_array, prefix="img", ext="png"):
     return path
 
 
+from transformers import pipeline
+
 def extract_keywords_from_sentence_llm(sentence):
     """
     Extract two keywords from a sentence using a small LLM.
@@ -27,21 +31,48 @@ def extract_keywords_from_sentence_llm(sentence):
         f"The first is the object to remove or replace, the second is the new object. "
         f"Only return the two keywords separated by a comma:\n\n{sentence}"
     )
-    llm_extract = pipeline("text-generation", model="/nvme0n1/Qwen2.5-3B-Instruct") # Replace with your own model
 
-    output = llm_extract(prompt, max_new_tokens=20, return_full_text=False)[0]["generated_text"]
-    
-    # Check if the output contains a comma
-    if "," in output:
-        parts = output.strip().split(",", 1)
+    llm_extract = pipeline(
+        "text-generation",
+        "../autodl-tmp/qwen3_4B",
+        torch_dtype="auto",
+        device_map="auto",
+    )
+
+    messages = [{"role": "user", "content": prompt}]
+    output = llm_extract(messages, max_new_tokens=1000)
+
+    # 提取 assistant 回复内容
+    turns = output[0]["generated_text"]
+    assistant_reply = ""
+    for m in turns:
+        if m["role"] == "assistant":
+            assistant_reply = m["content"]
+            break
+
+    if not assistant_reply:
+        print("❌ No assistant reply found.")
+        return sentence, ""
+
+    # 提取 </think> 后内容
+    if "</think>" in assistant_reply:
+        final_output = assistant_reply.split("</think>")[-1].strip()
+    else:
+        final_output = assistant_reply.strip()
+
+    print("🧠 Final extracted:", final_output)
+
+    # 提取关键词
+    if "," in final_output:
+        parts = final_output.split(",", 1)
         return parts[0].strip(), parts[1].strip()
     else:
-        print("⚠️ LLM output format unexpected:", output)
+        print("⚠️ Unexpected format:", final_output)
         return sentence, ""
-    
+
 
 def create_img(params, mask):
-    # TODO: Currently only supports keyword mode, use a small LLM model to seperate the keywords in whole sentence mode
+    # TODO: Currently only supports keyword mode, use a small LLM model to seperate the keywords in whole sentence mode #
     # print("Prompt:", params["prompt"])
     print("Step:", params["step"])
     print("Guidance Scale:", params["guidance_scale"])
@@ -106,7 +137,7 @@ def run_pipeline(input_img, mode, sentence, kw1, kw2, steps, guidance, raw_mask)
     # Convert RGBA canvas to 0/1 binary mask
     raw_mask = raw_mask['layers']
     mask = None
-    if raw_mask is not None and len(raw_mask) > 0:
+    if raw_mask is not None and len(raw_mask) > 0: 
         # Convert to grayscale then threshold
         # TODO: The user's mask may not cover the whole target area, so we need to:
         # 1. Fill the gaps
@@ -238,4 +269,5 @@ with gr.Blocks() as demo:
         outputs=[output_image, logs]
     )
 
-demo.launch()
+demo.launch(share=True)
+

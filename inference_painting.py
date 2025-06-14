@@ -1,16 +1,34 @@
+# inference_painting.py
 import os
 from torchvision import transforms
 
 from masking_inpainting import mask_and_inpaint
+from masking_inpainting import plot_masks
 from VLinference import inference
+import cv2
+import numpy as np
+from PIL import Image
+import torchvision.transforms as T
+import uuid
+import os
+import matplotlib.pyplot as plt
+
+def plot_manual_mask(input_image, mask_array, save_name="tmp/manual_mask_compare.png"):
+    """可视化用户手绘的掩码区域"""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
+    ax1.imshow(input_image)
+    ax1.set_title("Original Image")
+    ax1.axis("off")
+
+    ax2.imshow(mask_array, cmap='gray')
+    ax2.set_title("User Drawn Mask")
+    ax2.axis("off")
+
+    plt.tight_layout()
+    plt.savefig(save_name)
+    print(f"✅ Saved user mask visualization to: {save_name}")
 
 def extract_mask(image_path, mask):
-    import cv2
-    import numpy as np
-    from PIL import Image
-    import torchvision.transforms as T
-    import uuid
-    import os
 
     # === Step 1: 加载原图并与 mask 尺寸对齐 ===
     input_image = Image.open(image_path).convert("RGB").resize((mask.shape[1], mask.shape[0]))
@@ -29,6 +47,10 @@ def extract_mask(image_path, mask):
     os.makedirs("tmp", exist_ok=True)
     masked_path = f"tmp/masked_{uuid.uuid4().hex}.jpg"
     masked_img.save(masked_path)
+    print(f"✅ Masked image saved to: {masked_path}")
+    
+    plot_manual_mask(input_image, mask)
+
     
     return masked_path
 
@@ -54,16 +76,21 @@ def do_inf_inpaint(image_path, mask_prompt, inpaint_prompt, description_scale=10
         # Perform masking and inpainting
         inpaint_prompt = f"{adjectives} {inpaint_prompt}"
 
-    if mask :
+    if mask is not None:
         masked_path = extract_mask(image_path, mask)
         prompt = f"Please describe in detail the main object in the img. Use at least {description_scale} adjective words, including its type, color, texture, etc. Do not use full sentences."
         adjectives = inference(masked_path, prompt)
 
         # Perform masking and inpainting
         inpaint_prompt = f"{adjectives} {inpaint_prompt}"
-        os.remove(masked_path) # delete the temporary masked image
+#        os.remove(masked_path) # delete the temporary masked image
 
-    output_image = mask_and_inpaint(image_path, mask_prompt, inpaint_prompt, verbose=False, mask=mask)
+        
+    output_image = mask_and_inpaint(image_path, mask_prompt, inpaint_prompt, verbose=True, mask=mask)
+    os.makedirs("tmp", exist_ok=True)
+    masked_path = f"tmp/paint.jpg"
+    output_image.save(masked_path)  
+    print(f"✅ Output image saved to: {masked_path}")
     
     return output_image
 
