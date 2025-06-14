@@ -1,7 +1,7 @@
+# masking_inpainting.py
 """
 Functions to perform text-based masking and inpainting.
 """
-
 
 import torch
 from torchvision import transforms
@@ -10,6 +10,7 @@ from clipseg.models.clipseg import CLIPDensePredT
 from PIL import Image
 from matplotlib import pyplot as plt
 
+diffusion_path = '../autodl-tmp/sd2'
 
 def clipseg_model(device, advanced=True):
     """Loads clipseg model #2 (refined) in inference mode.
@@ -30,13 +31,14 @@ def clipseg_model(device, advanced=True):
     return model
 
 
-def plot_masks(input_image, prompts, mask_images):
+def plot_masks(input_image, prompts, mask_images, n):
     """Plots a horizontal grid of mask images next to the input image.
 
     Args:
         input_image (PIL.Image.Image): input image to be plotted
         prompts (list): list of strings containing the mask prompts
         mask_images (tensor): generated mask images from the clipseg model
+        n (int): number of prompts and mask images
 
     Returns:
         None
@@ -48,11 +50,11 @@ def plot_masks(input_image, prompts, mask_images):
     ax[0].text(0, -15, 'input')
     [ax[i+1].imshow(torch.sigmoid(mask_images[i][0]), cmap='gray') for i in range(n)]
     [ax[i+1].text(0, -15, '"' + prompts[i] + '"') for i in range(n)]
-    plt.savefig('tmp/mask_images.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'tmp/mask_images{n}.png', dpi=300, bbox_inches='tight')
     plt.show()
 
 
-def create_mask(input_path, transform, prompts, model, verbose=False):
+def create_mask(input_path, transform, prompts, model, verbose=True):
     """Create a mask image for every prompt, based on an input image.
 
     Args:
@@ -84,15 +86,15 @@ def create_mask(input_path, transform, prompts, model, verbose=False):
     if verbose:
         # Raw results
         print('Image Segmentation:')
-        plot_masks(input_image, prompts, preds)
+        plot_masks(input_image, prompts, preds,n=1)
         
         print('Mask Generation:')
-        plot_masks(input_image, prompts, mask_image)
+        plot_masks(input_image, prompts, mask_image,n=2)
 
     return input_image, mask_image
 
 
-def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=False, mask=None):
+def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=True, mask=None):
     """Performs prompt-based image segmentation on a user-input image, followed by prompt-based inpainting.
 
     Args:
@@ -131,7 +133,7 @@ def mask_and_inpaint(input_filepath, mask_prompt, inpaint_prompt, verbose=False,
 
     # Perform inpainting
     pipe = StableDiffusionInpaintPipeline.from_pretrained(
-        '/nvme0n1/xmy/stable-diffusion-2-inpainting', 
+        diffusion_path, 
         revision='fp16', 
         torch_dtype=torch.float16,
         use_safetensors=True
