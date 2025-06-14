@@ -11,6 +11,9 @@ import cv2
 from inference_painting import do_inf_inpaint
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
+model_path = "../autodl-tmp/qwen3_4B"
+
+
 def save_temp_image(image_array, prefix="img", ext="png"):
     os.makedirs("tmp", exist_ok=True)
     path = f"tmp/{prefix}_{uuid.uuid4().hex}.{ext}"
@@ -18,9 +21,6 @@ def save_temp_image(image_array, prefix="img", ext="png"):
         image_array = (image_array * 255).astype(np.uint8)
     Image.fromarray(image_array).save(path)
     return path
-
-
-from transformers import pipeline
 
 def extract_keywords_from_sentence_llm(sentence):
     """
@@ -34,7 +34,7 @@ def extract_keywords_from_sentence_llm(sentence):
 
     llm_extract = pipeline(
         "text-generation",
-        "../autodl-tmp/qwen3_4B",
+        model_path,
         torch_dtype="auto",
         device_map="auto",
     )
@@ -72,8 +72,6 @@ def extract_keywords_from_sentence_llm(sentence):
 
 
 def create_img(params, mask):
-    # TODO: Currently only supports keyword mode, use a small LLM model to seperate the keywords in whole sentence mode #
-    # print("Prompt:", params["prompt"])
     print("Step:", params["step"])
     print("Guidance Scale:", params["guidance_scale"])
     if mask is not None:
@@ -139,11 +137,6 @@ def run_pipeline(input_img, mode, sentence, kw1, kw2, steps, guidance, raw_mask)
     mask = None
     if raw_mask is not None and len(raw_mask) > 0: 
         # Convert to grayscale then threshold
-        # TODO: The user's mask may not cover the whole target area, so we need to:
-        # 1. Fill the gaps
-        # 2. enlarge it a bit
-        # Maybe try use a rectangle to cover the whole area anyway
-        #----------------------------------------------------
         # step 0: Convert to binary mask
         gray = (raw_mask[0].mean(axis=2) > 0).astype(np.uint8)
 
@@ -187,22 +180,6 @@ def run_pipeline(input_img, mode, sentence, kw1, kw2, steps, guidance, raw_mask)
     return out, logs
 
 with gr.Blocks() as demo:
-    # gr.HTML("""
-    # <style>
-    # #image-stack canvas {
-    #     position: absolute;
-    #     top: 0; left: 0;
-    # }
-    # #image-stack > div {
-    #     position: absolute;
-    #     top: 0; left: 0;
-    # }
-    # #image-stack {
-    #     position: relative;
-    #     display: inline-block;
-    # }
-    # </style>
-    # """)
     # Hidden variable to track toggle state
     mask_visible = gr.State(False)
 
@@ -218,13 +195,6 @@ with gr.Blocks() as demo:
                 elem_id="input-img",
                 container=False,
             )
-            # mask_canvas = gr.Sketchpad(
-            #     label=None,
-            #     type="numpy",
-            #     brush=20,
-            #     visible=False,
-            #     elem_id="mask-overlay"
-            # )
             gr.HTML("</div>")
             
             output_image = gr.Image(label="Output image", type="pil")

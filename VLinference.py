@@ -6,6 +6,7 @@ import torch
 
 def inference(img_path, prompt):
     model_path="../autodl-tmp/vl"
+    use_flash_attention = True
 
     # default: Load the model on the available device(s)
     # model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
@@ -16,7 +17,7 @@ def inference(img_path, prompt):
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path,
         torch_dtype=torch.bfloat16,
-        attn_implementation="eager",
+        attn_implementation="flash_attention_2" if use_flash_attention else "eager",
         device_map="auto",
     )
 

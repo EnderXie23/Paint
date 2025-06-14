@@ -6,7 +6,7 @@ This repo allows you to perform **image editing via text prompts**, or support u
 
 - [x] Text-guided image inpainting
 - [x] User-defined masking area
-- [ ] Complete WebUI support (Check TODOs in code)
+- [x] Complete WebUI support
 - [ ] Train the clip model for mask prediction
 - [ ] Design a metric for mask prediction quality (*Sciprt Finished*)
 - [ ] Do ablation study (*Sciprt Finished*)
