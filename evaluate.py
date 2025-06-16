@@ -30,6 +30,7 @@ from sklearn.metrics import silhouette_score
 from skimage import measure
 import torch
 from torchvision import transforms
+from tqdm import tqdm
 
 
 def _load_mask(path: str) -> np.ndarray:
@@ -64,8 +65,14 @@ def kmeans_cluster_count(mask: np.ndarray, max_k: int = 5) -> int:
         Estimated number of clusters/regions in the mask.
     """
     coords = np.column_stack(np.nonzero(mask))
+    # print(f"pred_mask foreground pixel count: {len(coords)}")
     if len(coords) <= 1:
         return int(len(coords) > 0)
+
+    if len(coords) > 1000:
+        # print(f"Too many foreground pixels ({len(coords)}), downsampling for kmeans...")
+        idx = np.random.choice(len(coords), 1000, replace=False)
+        coords = coords[idx]
 
     best_k = 1
     best_score = -1.0
@@ -104,6 +111,8 @@ def evaluate_pair(
     score_iou = iou(pred_mask, gt_mask)
     gt_regions = measure.label(gt_mask).max()
     pred_regions = kmeans_cluster_count(pred_mask, max_k=max_k)
+    # gt_regions = measure.label(gt_mask, connectivity=2).max()
+    # pred_regions = measure.label(pred_mask, connectivity=2).max()
     cluster_diff = abs(pred_regions - gt_regions)
     return score_iou, cluster_diff
 
@@ -156,19 +165,32 @@ def evaluate_dataset(
     ]
 
     scores = []
-    for sample in sample_dirs:
+    for sample in tqdm(sample_dirs, desc="Evaluating samples", unit="sample"):
+        # print(f"Processing sample: {sample}")
         src_path = os.path.join(sample, "source_img.png")
         mask_path = os.path.join(sample, "mask_img.png")
         instr_path = os.path.join(sample, "instructions.txt")
 
         if not (os.path.exists(src_path) and os.path.exists(mask_path) and os.path.exists(instr_path)):
+            # print(f"Skipping sample (missing file): {sample}")
             continue
 
-        with open(instr_path, "r", encoding="utf-8") as f:
-            instruction = f.read().strip()
+        # with open(instr_path, "r", encoding="utf-8") as f:
+        #     instruction = f.read().strip()
 
-        pred_mask = predict_mask(model, src_path, instruction, device, transform)
-        gt_mask = _load_mask(mask_path)
+        # pred_mask = predict_mask(model, src_path, instruction, device, transform)
+        # gt_mask = _load_mask(mask_path)
+        try:
+            # print("Reading instruction...")
+            with open(instr_path, "r", encoding="utf-8") as f:
+                instruction = f.read().strip()
+            # print("Predicting mask...")
+            pred_mask = predict_mask(model, src_path, instruction, device, transform)
+            # print("Loading GT mask...")
+            gt_mask = _load_mask(mask_path)
+        except Exception as e:
+            print(f"Error in sample {sample}: {e}")
+            continue
 
         if pred_mask.shape != gt_mask.shape:
             pred_mask_img = Image.fromarray((pred_mask > 0).astype(np.uint8) * 255)
