@@ -5,8 +5,7 @@ from qwen_vl_utils import process_vision_info
 import torch
 
 def inference(img_path, prompt):
-    model_path="/nvme0n1/xmy/Qwen2.5-VL-7B-Instruct"
-    use_flash_attention = True
+    model_path="../autodl-tmp/vl"
 
     # default: Load the model on the available device(s)
     # model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
@@ -17,7 +16,7 @@ def inference(img_path, prompt):
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_path,
         torch_dtype=torch.bfloat16,
-        attn_implementation="flash_attention_2" if use_flash_attention else "eager",
+        attn_implementation="eager",
         device_map="auto",
     )
 

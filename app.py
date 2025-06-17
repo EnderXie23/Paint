@@ -11,9 +11,6 @@ import cv2
 from inference_painting import do_inf_inpaint
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-model_path = "/nvme0n1/xmy/Qwen3-4B"
-
-
 def save_temp_image(image_array, prefix="img", ext="png"):
     os.makedirs("tmp", exist_ok=True)
     path = f"tmp/{prefix}_{uuid.uuid4().hex}.{ext}"
@@ -22,19 +19,35 @@ def save_temp_image(image_array, prefix="img", ext="png"):
     Image.fromarray(image_array).save(path)
     return path
 
+
+from transformers import pipeline
+
 def extract_keywords_from_sentence_llm(sentence):
     """
     Extract two keywords from a sentence using a small LLM.
     """
-    prompt = (
-        f"You are a photo inpainting assistant. Extract two keywords from the following prompt. "
-        f"The first is the object to remove or replace, the second is the new object. "
-        f"Only return the two keywords separated by a comma.:\n\n{sentence}"
-    )
+    prompt = f"""
+    You are a helpful assistant for photo editing. 
+
+    Given an instruction for image inpainting, extract two keywords:
+    1. The object to remove or replace (keyword_1)
+    2. The object to add or use as replacement (keyword_2)
+
+    If the instruction is only about removing something (e.g., 'get rid of the dog'), set keyword_2 to an empty string.
+
+    Respond **with only the two keywords separated by a comma**, like this:
+    cat,dog
+    or:
+    trash,    
+
+    Now extract from this instruction:
+    {sentence}
+    """
+
 
     llm_extract = pipeline(
         "text-generation",
-        model_path,
+        "../autodl-tmp/qwen3_4B",
         torch_dtype="auto",
         device_map="auto",
     )
@@ -72,6 +85,8 @@ def extract_keywords_from_sentence_llm(sentence):
 
 
 def create_img(params, mask):
+    # TODO: Currently only supports keyword mode, use a small LLM model to seperate the keywords in whole sentence mode #
+    # print("Prompt:", params["prompt"])
     print("Step:", params["step"])
     print("Guidance Scale:", params["guidance_scale"])
     if mask is not None:
@@ -137,6 +152,11 @@ def run_pipeline(input_img, mode, sentence, kw1, kw2, steps, guidance, raw_mask)
     mask = None
     if raw_mask is not None and len(raw_mask) > 0: 
         # Convert to grayscale then threshold
+        # TODO: The user's mask may not cover the whole target area, so we need to:
+        # 1. Fill the gaps
+        # 2. enlarge it a bit
+        # Maybe try use a rectangle to cover the whole area anyway
+        #----------------------------------------------------
         # step 0: Convert to binary mask
         gray = (raw_mask[0].mean(axis=2) > 0).astype(np.uint8)
 
@@ -180,6 +200,22 @@ def run_pipeline(input_img, mode, sentence, kw1, kw2, steps, guidance, raw_mask)
     return out, logs
 
 with gr.Blocks() as demo:
+    # gr.HTML("""
+    # <style>
+    # #image-stack canvas {
+    #     position: absolute;
+    #     top: 0; left: 0;
+    # }
+    # #image-stack > div {
+    #     position: absolute;
+    #     top: 0; left: 0;
+    # }
+    # #image-stack {
+    #     position: relative;
+    #     display: inline-block;
+    # }
+    # </style>
+    # """)
     # Hidden variable to track toggle state
     mask_visible = gr.State(False)
 
@@ -195,6 +231,13 @@ with gr.Blocks() as demo:
                 elem_id="input-img",
                 container=False,
             )
+            # mask_canvas = gr.Sketchpad(
+            #     label=None,
+            #     type="numpy",
+            #     brush=20,
+            #     visible=False,
+            #     elem_id="mask-overlay"
+            # )
             gr.HTML("</div>")
             
             output_image = gr.Image(label="Output image", type="pil")
@@ -239,5 +282,5 @@ with gr.Blocks() as demo:
         outputs=[output_image, logs]
     )
 
-demo.launch()
+demo.launch(share=True)
 
