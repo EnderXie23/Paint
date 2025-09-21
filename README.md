@@ -2,6 +2,8 @@
 
 This repo allows you to perform **image editing via text prompts**, or support user-defined masking area and generation prompts.
 
+![Visual Demo](demo.png)
+
 Tip: modify the paths in `VLinference.py`, `masking_inpainting.py`, and `app.py` to point to your local model directories.
 
 ## TaskList
